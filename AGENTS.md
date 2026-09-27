@@ -64,6 +64,9 @@ Stack: Vite 8 + React 19 + TypeScript, hand-written CSS with OKLCH tokens
   replaces the symlink with a real folder: afterwards run
   `mv node_modules node_modules.nosync && ln -s node_modules.nosync node_modules`.
   `resolve.preserveSymlinks` in `vite.config.ts` is what makes the dev server work with it.
+- **Public** git repo: `github.com/Axeeh/scheda-gym` (own `.git` in this folder, ignored by the
+  workspace repo). Alessio's weights (`dati/`, `scripts/scheda-alessio.ts`) are gitignored on
+  purpose and exist only on this Mac: never commit them, never put personal data in this repo.
 - Live at **https://la-mia-scheda-gym.netlify.app** (Netlify site `la-mia-scheda-gym`,
   team "Axeeh's team"). Hosting headers in `netlify.toml`. Update = `npm run build` then
   `netlify deploy --prod --dir dist` from this folder (the site link lives in the
