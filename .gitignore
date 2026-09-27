@@ -1,0 +1,13 @@
+# node_modules e' un symlink verso node_modules.nosync (trucco anti-iCloud)
+node_modules
+node_modules.nosync/
+dist/
+.netlify/
+node_modules 2/
+
+# I pesi personali di Alessio restano solo in locale: il repository e' pubblico
+dati/
+scripts/scheda-alessio.ts
+
+.claude/
+.DS_Store
