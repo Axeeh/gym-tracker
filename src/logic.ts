@@ -131,6 +131,28 @@ function sameWeights(a: Entry[][], b: Entry[][]) {
   return true
 }
 
+// Cambia un valore di una serie. Il peso si porta dietro le serie successive non ancora fatte
+// che avevano lo stesso peso: una piramide voluta (40, 40, 35) resta com'e' dalla serie diversa in poi
+export function applyEntry(
+  sets: DraftSet[],
+  setIdx: number,
+  part: number,
+  field: 'w' | 'r',
+  value: number | null,
+): DraftSet[] {
+  const old = sets[setIdx]?.e[part]?.[field]
+  if (old === undefined) return sets
+  let follow = field === 'w'
+  return sets.map((row, i) => {
+    if (i < setIdx) return row
+    if (i > setIdx) {
+      follow = follow && !row.done && row.e[part]?.w === old
+      if (!follow) return row
+    }
+    return { ...row, e: row.e.map((en, p) => (p === part ? { ...en, [field]: value } : en)) }
+  })
+}
+
 export function draftProgress(day: Day, draft: Draft | undefined) {
   let total = 0
   let done = 0

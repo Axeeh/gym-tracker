@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { freshState, noteSessions, templateState } from './seed'
 import {
+  applyEntry,
   createDraft,
   draftToSession,
   newRecords,
@@ -12,7 +13,7 @@ import {
   syncDraft,
 } from './logic'
 import { fmtSets, parseNum, planAsText, relDay } from './format'
-import type { Session } from './types'
+import type { DraftSet, Session } from './types'
 import { guessIcon, iconFor } from './icons'
 
 // Scheda pronta con alcuni pesi di partenza, come dopo l'import del backup delle note
@@ -101,6 +102,39 @@ describe('precompilazione', () => {
     const synced = syncDraft(changed, draft, s.sessions)
     expect(synced.exercises['chest-press']).toBeUndefined()
     expect(synced.exercises['nuovo'].sets).toHaveLength(2)
+  })
+})
+
+describe('correzione delle serie', () => {
+  const serie = (pesi: (number | null)[], fatte: boolean[] = []): DraftSet[] =>
+    pesi.map((w, i) => ({ e: [{ w, r: 8 }], done: fatte[i] ?? false }))
+  const pesi = (sets: DraftSet[]) => sets.map((s) => s.e[0].w)
+
+  it('il peso nuovo passa alle serie dopo con lo stesso peso', () => {
+    expect(pesi(applyEntry(serie([40, 40, 40]), 0, 0, 'w', 45))).toEqual([45, 45, 45])
+  })
+
+  it('una piramide resta com e dalla serie diversa in poi', () => {
+    expect(pesi(applyEntry(serie([40, 40, 35]), 0, 0, 'w', 45))).toEqual([45, 45, 35])
+  })
+
+  it('segue anche mentre scrivi una cifra alla volta', () => {
+    let sets = applyEntry(serie([40, 40, 40]), 0, 0, 'w', 4)
+    sets = applyEntry(sets, 0, 0, 'w', 42.5)
+    expect(pesi(sets)).toEqual([42.5, 42.5, 42.5])
+  })
+
+  it('non tocca le serie gia fatte, quelle prima e le ripetizioni', () => {
+    const sets = applyEntry(serie([40, 40, 40, 40], [false, false, true]), 1, 0, 'w', 45)
+    expect(pesi(sets)).toEqual([40, 45, 40, 40])
+    const reps = applyEntry(serie([40, 40]), 0, 0, 'r', 6)
+    expect(reps.map((s) => s.e[0].r)).toEqual([6, 8])
+  })
+
+  it('nel superset cambia solo la parte toccata', () => {
+    const sets: DraftSet[] = [0, 1].map(() => ({ e: [{ w: 20, r: 10 }, { w: 10, r: 10 }], done: false }))
+    const out = applyEntry(sets, 0, 1, 'w', 12)
+    expect(out.map((s) => s.e.map((en) => en.w))).toEqual([[20, 12], [20, 12]])
   })
 })
 

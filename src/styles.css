@@ -765,6 +765,11 @@ a.row:active {
   grid-row: span 2;
 }
 
+.set-n.span4,
+.check.span4 {
+  grid-row: span 4;
+}
+
 .field {
   position: relative;
   display: flex;
@@ -860,6 +865,66 @@ a.row:active {
 }
 
 .check.span2 {
+  align-self: center;
+}
+
+/* La serie in corso: peso e ripetizioni su due righe, con - / + ai lati */
+.stepfield {
+  display: grid;
+  grid-column: 2 / 4;
+  grid-template-columns: 50px 1fr 50px;
+  align-items: center;
+  height: var(--field-h);
+  border: 2px solid transparent;
+  border-radius: 13px;
+  background: var(--surface-2);
+  animation: enter var(--dur) var(--ease-out);
+  transition:
+    background-color var(--dur) linear,
+    border-color var(--dur-fast) linear;
+}
+
+.stepfield:focus-within {
+  border-color: var(--day, var(--focus));
+  background: var(--surface);
+}
+
+.stepfield .field,
+.stepfield .field:focus-within {
+  height: 100%;
+  border: 0;
+  background: none;
+}
+
+/* Margini uguali ai lati: il numero sta al centro tra - e + */
+.stepfield .field input {
+  padding: 0 28px;
+}
+
+.stepfield button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  color: var(--day-ink, var(--ink));
+  transition: background-color var(--dur-fast) linear;
+}
+
+.stepfield button:active:not(:disabled) {
+  background: var(--day-soft, var(--surface-3));
+}
+
+.stepfield button:disabled {
+  color: var(--ink-3);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.check.span4 {
   align-self: center;
 }
 

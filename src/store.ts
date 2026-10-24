@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { AppState, Day, DraftExercise, Exercise, Session } from './types'
 import { freshState, templateState } from './seed'
 import {
+  applyEntry,
   COLORS,
   createDraft,
   draftToSession,
@@ -121,11 +122,7 @@ export function setEntry(
   set((s) =>
     mapDraftExercise(s, dayId, exId, (d) => ({
       ...d,
-      sets: d.sets.map((row, i) =>
-        i !== setIdx
-          ? row
-          : { ...row, e: row.e.map((en, p) => (p === part ? { ...en, [field]: value } : en)) },
-      ),
+      sets: applyEntry(d.sets, setIdx, part, field, value),
     })),
   )
 }

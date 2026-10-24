@@ -15,7 +15,7 @@ import {
 } from '../store'
 import { go, useWakeLock } from '../device'
 import { showResult, toast } from '../flash'
-import { NumberField, Pictogram, Sheet } from '../ui'
+import { NumberField, Pictogram, Sheet, StepField } from '../ui'
 import { iconFor } from '../icons'
 
 export function Workout({ state, dayId }: { state: AppState; dayId: string }) {
@@ -208,6 +208,9 @@ function ExerciseBlock({
   const allDone = sets.length > 0 && sets.every((s) => s.done)
   const partLetters = ex.parts ? ['A', 'B'] : [undefined]
   const headId = `ex-${ex.id}`
+  const currentIdx = sets.findIndex((s) => !s.done)
+  // Lo stesso scatto del suggerimento di progressione; 2,5 kg se l'esercizio non ne ha uno
+  const wStep = ex.step > 0 ? ex.step : 2.5
 
   const onCheck = (i: number) => toggleDone(day.id, ex.id, i)
 
@@ -302,43 +305,52 @@ function ExerciseBlock({
         </span>
 
         {sets.map((s, i) => {
-          const span = ex.parts ? ' span2' : ''
+          // La serie in corso si allarga con - / +: una riga per peso e una per ripetizioni
+          const current = i === currentIdx
+          const span = current ? (ex.parts ? ' span4' : ' span2') : ex.parts ? ' span2' : ''
           return (
-            <div key={i} className={`set-row${s.done ? ' is-done' : ''}`}>
+            <div key={i} className={`set-row${s.done ? ' is-done' : ''}${current ? ' is-current' : ''}`}>
               <span className={`set-n${span}`} aria-hidden="true">
                 {i + 1}
               </span>
               {partLetters.map((letter, p) => {
                 const partName = ex.parts ? `, ${ex.parts[p]}` : ''
-                const cells = [
-                  <NumberField
-                    key={`w${p}`}
-                    value={s.e[p]?.w ?? null}
-                    onChange={(v) => setEntry(day.id, ex.id, i, p, 'w', v)}
-                    label={`Serie ${i + 1}${partName}, ${ex.bodyweight ? 'zavorra' : 'peso'} in kg`}
-                    unit="kg"
-                    part={letter}
-                    decimals
-                    placeholder={ex.bodyweight ? '0' : '–'}
-                  />,
-                  <NumberField
-                    key={`r${p}`}
-                    value={s.e[p]?.r ?? null}
-                    onChange={(v) => setEntry(day.id, ex.id, i, p, 'r', v)}
-                    label={`Serie ${i + 1}${partName}, ripetizioni`}
-                    part={letter}
-                    placeholder={ex.target != null ? String(ex.target) : ex.bodyweight ? 'max' : '–'}
-                  />,
-                ]
-                // Nel superset la spunta sta sulla prima riga e occupa entrambe
-                if (p === 0)
-                  return [
-                    ...cells,
-                    ...(ex.parts ? [checkButton(`c${p}`, i, s.done, span, () => onCheck(i))] : []),
-                  ]
-                return cells
+                const weight = {
+                  value: s.e[p]?.w ?? null,
+                  onChange: (v: number | null) => setEntry(day.id, ex.id, i, p, 'w', v),
+                  label: `Serie ${i + 1}${partName}, ${ex.bodyweight ? 'zavorra' : 'peso'} in kg`,
+                  unit: 'kg',
+                  part: letter,
+                  decimals: true,
+                  placeholder: ex.bodyweight ? '0' : '–',
+                }
+                const reps = {
+                  value: s.e[p]?.r ?? null,
+                  onChange: (v: number | null) => setEntry(day.id, ex.id, i, p, 'r', v),
+                  label: `Serie ${i + 1}${partName}, ripetizioni`,
+                  part: letter,
+                  placeholder: ex.target != null ? String(ex.target) : ex.bodyweight ? 'max' : '–',
+                }
+                const cells = current
+                  ? [
+                      <StepField key={`w${p}`} {...weight} step={wStep} from={null} what={fmtKg(wStep)} />,
+                      <StepField
+                        key={`r${p}`}
+                        {...reps}
+                        unit="rip"
+                        step={1}
+                        from={ex.target}
+                        what="1 ripetizione"
+                      />,
+                    ]
+                  : [<NumberField key={`w${p}`} {...weight} />, <NumberField key={`r${p}`} {...reps} />]
+                // Quando la serie occupa piu' righe la spunta sta sulla prima e le copre tutte
+                const check = checkButton(`c${p}`, i, s.done, span, () => onCheck(i))
+                if (p > 0) return cells
+                if (current) return [cells[0], check, cells[1]]
+                return ex.parts ? [...cells, check] : cells
               })}
-              {!ex.parts && checkButton('c', i, s.done, '', () => onCheck(i))}
+              {!ex.parts && !current && checkButton('c', i, s.done, '', () => onCheck(i))}
             </div>
           )
         })}

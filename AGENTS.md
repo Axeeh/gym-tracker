@@ -58,6 +58,11 @@ Stack: Vite 8 + React 19 + TypeScript, hand-written CSS with OKLCH tokens
 - Supersets are exercises with `parts: [A, B]`; every set holds one entry per part.
   Keep that invariant in any new feature (chart, text export, records).
 - A set is saved only when ticked; ticking with empty reps fills in the target.
+- Changing a weight carries it to the following unticked sets that had the same weight
+  (`applyEntry` in `logic.ts`); reps never propagate. The current set of each exercise (first
+  unticked) shows weight and reps on two rows with − / + (`StepField`, weight step = the
+  exercise's `step`, 2.5 kg if none); the other rows stay compact because − / + don't fit
+  two fields side by side at 375px.
 - Day colors: `[data-color]` tokens in `styles.css`, validated with the dataviz palette
   script (dark L 0.67, light L 0.62). Chart marks use `--day`; text never uses it.
 - `node_modules` is a symlink to `node_modules.nosync/` (iCloud trick). `npm install`

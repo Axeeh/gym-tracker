@@ -117,6 +117,46 @@ export function NumberField({
   )
 }
 
+// ---------- campo numerico con - / + ai lati (la serie in corso) ----------
+
+export function StepField({
+  value,
+  onChange,
+  step,
+  from,
+  what,
+  ...field
+}: Parameters<typeof NumberField>[0] & {
+  step: number
+  // Da dove partono - e + se il campo e' vuoto (es. l'obiettivo di ripetizioni)
+  from: number | null
+  // "2,5 kg", "1 ripetizione": per lo screen reader
+  what: string
+}) {
+  const round = (v: number) => Math.round(v * 100) / 100
+  const base = value ?? from
+  return (
+    <div className="stepfield" role="group" aria-label={field.label}>
+      <button
+        type="button"
+        aria-label={`Meno ${what}`}
+        disabled={base == null || base <= 0}
+        onClick={() => base != null && onChange(Math.max(0, round(base - step)))}
+      >
+        <Minus size={20} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+      <NumberField value={value} onChange={onChange} {...field} />
+      <button
+        type="button"
+        aria-label={`Più ${what}`}
+        onClick={() => onChange(round((base ?? 0) + step))}
+      >
+        <Plus size={20} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
 // ---------- controllo segmentato ----------
 
 export function Seg<T extends string>({
