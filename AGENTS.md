@@ -73,9 +73,11 @@ Stack: Vite 8 + React 19 + TypeScript, hand-written CSS with OKLCH tokens
   workspace repo). Alessio's weights (`dati/`, `scripts/scheda-alessio.ts`) are gitignored on
   purpose and exist only on this Mac: never commit them, never put personal data in this repo.
 - Live at **https://la-mia-scheda-gym.netlify.app** (Netlify site `la-mia-scheda-gym`,
-  team "Axeeh's team"). Hosting headers in `netlify.toml`. Update = `npm run build` then
-  `netlify deploy --prod --dir dist` from this folder (the site link lives in the
-  gitignored `.netlify/`). **Never change the site address**: every phone's data is tied
+  team "Axeeh's team"). Hosting headers and build settings in `netlify.toml`. Update = push to
+  `main` on GitHub: Netlify runs `npm test && npm run build` (Node 22) and publishes `dist/`;
+  a failing test stops the deploy and the old version stays online. Manual fallback:
+  `npm run build` then `netlify deploy --prod --dir dist` from this folder (the site link
+  lives in the gitignored `.netlify/`). **Never change the site address**: every phone's data is tied
   to it, a new address means starting from zero. On iOS the home screen app has storage
   separate from Safari, which is why Welcome tells people to install first.
 - In this Chrome, `window.scrollTo()` returns a Promise: never return it from a

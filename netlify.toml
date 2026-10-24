@@ -1,7 +1,11 @@
-# Pubblicazione su Netlify: build in locale, poi `netlify deploy --prod --dir dist`
+# Pubblicazione su Netlify: ogni push su main viene costruito e pubblicato da Netlify.
+# Se un test fallisce la build si ferma e resta online la versione di prima
 [build]
-  command = "npm run build"
+  command = "npm test && npm run build"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 # Pagina e service worker sempre ricontrollati, cosi' gli aggiornamenti arrivano subito
 [[headers]]
