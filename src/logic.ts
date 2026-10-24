@@ -76,22 +76,59 @@ export function syncDraft(day: Day, draft: Draft, sessions: Session[]): Draft {
   return { ...draft, exercises }
 }
 
-export type Suggestion = { step: number; reps: number }
+// 'obiettivo' = ripetizioni chiuse in tutte le serie, 'stesso-peso' = pesi uguali da piu' volte
+export type Suggestion =
+  | { kind: 'obiettivo'; step: number; reps: number }
+  | { kind: 'stesso-peso'; step: number; times: number }
 
-// Doppia progressione: se l'ultima volta hai chiuso l'obiettivo in tutte le serie, sali di peso
+// Doppia progressione: se l'ultima volta hai chiuso l'obiettivo in tutte le serie, sali di peso.
+// Altrimenti, se hai usato gli stessi pesi per almeno due allenamenti di fila, proponi di salire
 export function progressionFor(ex: Exercise, sessions: Session[]): Suggestion | null {
-  if (ex.target == null || !(ex.step > 0)) return null
+  if (!(ex.step > 0)) return null
   const last = lastLog(sessions, ex.id)
   if (!last) return null
   const sets = last.log.sets
-  if (sets.length < ex.sets) return null
   const target = ex.target
-  const ok = sets.every(
-    (row) =>
-      row.length > 0 &&
-      row.every((en) => en.r != null && en.r >= target && en.w != null && en.w > 0),
-  )
-  return ok ? { step: ex.step, reps: target } : null
+  const ok =
+    target != null &&
+    sets.length >= ex.sets &&
+    sets.every(
+      (row) =>
+        row.length > 0 &&
+        row.every((en) => en.r != null && en.r >= target && en.w != null && en.w > 0),
+    )
+  if (ok) return { kind: 'obiettivo', step: ex.step, reps: target }
+  const times = sameWeightStreak(sessions, ex.id)
+  return times >= 2 ? { kind: 'stesso-peso', step: ex.step, times } : null
+}
+
+// Quanti allenamenti di fila, partendo dall'ultimo, hanno gli stessi pesi serie per serie.
+// Le note dell'iPhone non contano: sono un punto di partenza, non un allenamento con una data vera
+export function sameWeightStreak(sessions: Session[], exId: string): number {
+  const logs: Entry[][][] = []
+  for (const s of byDateDesc(sessions)) {
+    if (s.source === 'note') continue
+    const log = s.exercises.find((e) => e.exId === exId)
+    if (log && log.sets.length > 0) logs.push(log.sets)
+  }
+  if (!logs.length || !hasAllWeights(logs[0])) return 0
+  let times = 1
+  while (times < logs.length && sameWeights(logs[times - 1], logs[times])) times++
+  return times
+}
+
+const hasAllWeights = (sets: Entry[][]) =>
+  sets.every((row) => row.length > 0 && row.every((en) => en.w != null && en.w > 0))
+
+// Confronta le serie in comune: una serie in piu' o in meno non cambia il peso usato
+function sameWeights(a: Entry[][], b: Entry[][]) {
+  if (!hasAllWeights(b)) return false
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) {
+    if (a[i].length !== b[i].length) return false
+    if (a[i].some((en, p) => en.w !== b[i][p].w)) return false
+  }
+  return true
 }
 
 export function draftProgress(day: Day, draft: Draft | undefined) {

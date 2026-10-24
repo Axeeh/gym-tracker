@@ -261,7 +261,9 @@ function ExerciseBlock({
         <div className="suggest">
           <TrendingUp size={20} aria-hidden="true" style={{ flex: 'none', color: 'var(--day-ink)' }} />
           <p>
-            L'ultima volta hai chiuso {suggestion.reps} ripetizioni in tutte le serie. È ora di salire.
+            {suggestion.kind === 'obiettivo'
+              ? `L'ultima volta hai chiuso ${suggestion.reps} ripetizioni in tutte le serie. È ora di salire.`
+              : `Hai usato lo stesso peso nelle ultime ${suggestion.times} volte. Prova a salire.`}
           </p>
           <button
             type="button"

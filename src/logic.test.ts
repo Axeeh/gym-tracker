@@ -113,12 +113,35 @@ describe('suggerimento di progressione', () => {
   it('suggerisce di salire quando chiudi l obiettivo in tutte le serie', () => {
     const s = base()
     s.sessions.push(session('push', '2026-09-28T08:00:00', { 'chest-press': [[45, 8], [40, 9], [40, 8]] }))
-    expect(progressionFor(push(s).exercises[0], s.sessions)).toEqual({ step: 5, reps: 8 })
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toEqual({ kind: 'obiettivo', step: 5, reps: 8 })
   })
 
   it('non suggerisce se una serie resta sotto', () => {
     const s = base()
     s.sessions.push(session('push', '2026-09-28T08:00:00', { 'chest-press': [[45, 8], [40, 7], [40, 8]] }))
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toBeNull()
+  })
+
+  it('suggerisce di salire dopo due allenamenti di fila con lo stesso peso', () => {
+    const s = base()
+    s.sessions.push(session('push', '2026-09-28T08:00:00', { 'chest-press': [[45, 7], [40, 6], [40, 6]] }))
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toBeNull()
+    s.sessions.push(session('push', '2026-10-01T08:00:00', { 'chest-press': [[45, 7], [40, 7], [40, 6]] }))
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toEqual({ kind: 'stesso-peso', step: 5, times: 2 })
+    s.sessions.push(session('push', '2026-10-04T08:00:00', { 'chest-press': [[45, 7], [40, 7]] }))
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toMatchObject({ times: 3 })
+  })
+
+  it('non conta come stesso peso se una serie e cambiata', () => {
+    const s = base()
+    s.sessions.push(session('push', '2026-09-28T08:00:00', { 'chest-press': [[45, 7], [40, 6], [40, 6]] }))
+    s.sessions.push(session('push', '2026-10-01T08:00:00', { 'chest-press': [[45, 7], [42.5, 6], [40, 6]] }))
+    expect(progressionFor(push(s).exercises[0], s.sessions)).toBeNull()
+  })
+
+  it('il punto di partenza dalle note non conta come allenamento', () => {
+    const s = base()
+    s.sessions.push(session('push', '2026-09-28T08:00:00', { 'chest-press': [[45, 7], [40, 6], [40, 6]] }))
     expect(progressionFor(push(s).exercises[0], s.sessions)).toBeNull()
   })
 })
