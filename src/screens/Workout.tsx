@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState } from 'react'
-import { Check, ChevronLeft, CircleCheck, Plus, Timer, TrendingUp } from 'lucide-react'
+import { Check, ChevronLeft, CircleCheck, Minus, Plus, Timer, TrendingUp } from 'lucide-react'
 import type { AppState, Day, DraftExercise, Exercise, Session } from '../types'
 import { draftProgress, lastLog, progressionFor } from '../logic'
 import { fmtClock, fmtKg, fmtNum, fmtSets, fmtTime, relDay, nEx } from '../format'
@@ -9,7 +9,7 @@ import {
   discardDraft,
   finishDraft,
   openDraft,
-  removeLastSet,
+  removeSet,
   setEntry,
   toggleDone,
 } from '../store'
@@ -361,9 +361,10 @@ function ExerciseBlock({
           <Plus size={18} aria-hidden="true" />
           Aggiungi serie
         </button>
-        {sets.length > ex.sets && (
-          <button type="button" className="btn btn-text" onClick={() => removeLastSet(day.id, ex.id)}>
-            Togli l'ultima
+        {sets.length > 1 && (
+          <button type="button" className="btn btn-text" onClick={() => removeSet(day.id, ex.id)}>
+            <Minus size={18} aria-hidden="true" />
+            Togli serie
           </button>
         )}
       </div>

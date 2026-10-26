@@ -63,6 +63,8 @@ Stack: Vite 8 + React 19 + TypeScript, hand-written CSS with OKLCH tokens
   unticked) shows weight and reps on two rows with − / + (`StepField`, weight step = the
   exercise's `step`, 2.5 kg if none); the other rows stay compact because − / + don't fit
   two fields side by side at 375px.
+- "Togli serie" (`dropSet` in `logic.ts`) removes the last unticked set, so a logged set is
+  never lost; only when all are ticked does it remove the last one. At least one set stays.
 - Day colors: `[data-color]` tokens in `styles.css`, validated with the dataviz palette
   script (dark L 0.67, light L 0.62). Chart marks use `--day`; text never uses it.
 - `node_modules` is a symlink to `node_modules.nosync/` (iCloud trick). `npm install`

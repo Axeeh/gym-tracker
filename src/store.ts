@@ -6,6 +6,7 @@ import {
   COLORS,
   createDraft,
   draftToSession,
+  dropSet,
   newRecords,
   normalizeState,
   syncDraft,
@@ -158,12 +159,8 @@ export function addSet(dayId: string, exId: string) {
   )
 }
 
-export function removeLastSet(dayId: string, exId: string) {
-  set((s) =>
-    mapDraftExercise(s, dayId, exId, (d) =>
-      d.sets.length > 1 ? { ...d, sets: d.sets.slice(0, -1) } : d,
-    ),
-  )
+export function removeSet(dayId: string, exId: string) {
+  set((s) => mapDraftExercise(s, dayId, exId, (d) => ({ ...d, sets: dropSet(d.sets) })))
 }
 
 // Aggiunge (o toglie, con delta negativo) peso a tutte le serie non ancora fatte

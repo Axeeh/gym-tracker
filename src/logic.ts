@@ -153,6 +153,15 @@ export function applyEntry(
   })
 }
 
+// Toglie una serie: l'ultima non ancora fatta, cosi' non si perde una serie segnata.
+// Se sono tutte fatte toglie l'ultima. Ne resta sempre almeno una
+export function dropSet(sets: DraftSet[]): DraftSet[] {
+  if (sets.length <= 1) return sets
+  const open = sets.findLastIndex((s) => !s.done)
+  const idx = open === -1 ? sets.length - 1 : open
+  return sets.filter((_, i) => i !== idx)
+}
+
 export function draftProgress(day: Day, draft: Draft | undefined) {
   let total = 0
   let done = 0
