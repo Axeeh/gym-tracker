@@ -74,6 +74,8 @@ Stack: Vite 8 + React 19 + TypeScript, hand-written CSS with OKLCH tokens
 - **Public** git repo: `github.com/Axeeh/gym-tracker` (own `.git` in this folder, ignored by the
   workspace repo). Alessio's weights (`dati/`, `scripts/scheda-alessio.ts`) are gitignored on
   purpose and exist only on this Mac: never commit them, never put personal data in this repo.
+- **Commit messages in English**, even though the UI is in Italian and older commits are in
+  Italian.
 - Live at **https://la-mia-scheda-gym.netlify.app** (Netlify site `la-mia-scheda-gym`,
   team "Axeeh's team"). Hosting headers and build settings in `netlify.toml`. Update = push to
   `main` on GitHub: Netlify runs `npm test && npm run build` (Node 22) and publishes `dist/`;
