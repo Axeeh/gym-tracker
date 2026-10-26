@@ -4,6 +4,7 @@ import {
   applyEntry,
   createDraft,
   draftToSession,
+  dropSet,
   newRecords,
   nextDayId,
   normalizeState,
@@ -109,6 +110,13 @@ describe('correzione delle serie', () => {
   const serie = (pesi: (number | null)[], fatte: boolean[] = []): DraftSet[] =>
     pesi.map((w, i) => ({ e: [{ w, r: 8 }], done: fatte[i] ?? false }))
   const pesi = (sets: DraftSet[]) => sets.map((s) => s.e[0].w)
+
+  it('togliere una serie toglie l ultima non ancora fatta', () => {
+    expect(pesi(dropSet(serie([40, 42.5, 45])))).toEqual([40, 42.5])
+    expect(pesi(dropSet(serie([40, 42.5, 45], [false, false, true])))).toEqual([40, 45])
+    expect(pesi(dropSet(serie([40, 42.5], [true, true])))).toEqual([40])
+    expect(pesi(dropSet(serie([40])))).toEqual([40])
+  })
 
   it('il peso nuovo passa alle serie dopo con lo stesso peso', () => {
     expect(pesi(applyEntry(serie([40, 40, 40]), 0, 0, 'w', 45))).toEqual([45, 45, 45])
