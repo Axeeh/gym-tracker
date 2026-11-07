@@ -1,7 +1,8 @@
 import { ClipboardList, Dumbbell, History as HistoryIcon, TrendingUp, Trophy } from 'lucide-react'
-import { didSaveFail, useAppState } from './store'
-import { useRoute, type Route } from './device'
-import { showResult, useResult } from './flash'
+import { useEffect } from 'react'
+import { didSaveFail, finishIdleDrafts, useAppState } from './store'
+import { go, parseHash, useRoute, type Route } from './device'
+import { showResult, toast, useResult } from './flash'
 import { sessionSetCount, sessionVolume } from './logic'
 import { fmtKg, fmtNum } from './format'
 import { Sheet, Toaster } from './ui'
@@ -26,6 +27,7 @@ export default function App() {
   const route = useRoute()
   // Al primo avvio si sceglie da dove partire (il costruttore della scheda resta raggiungibile)
   const showWelcome = !state.onboarded && route.name !== 'builder'
+  useAutoFinish()
   const fullScreen =
     showWelcome || route.name === 'workout' || route.name === 'builder' || route.name === 'add'
 
@@ -74,6 +76,35 @@ export default function App() {
         return <Home state={state} />
     }
   }
+}
+
+// Un allenamento senza attivita' da IDLE_MINUTES si chiude da solo: all'apertura dell'app,
+// quando si torna sull'app e ogni minuto mentre e' aperta
+function useAutoFinish() {
+  useEffect(() => {
+    const check = () => {
+      const done = finishIdleDrafts()
+      if (!done.length) return
+      const r = parseHash(location.hash)
+      if (r.name === 'workout' && done.some((d) => d.dayId === r.dayId)) go('/')
+      const saved = done.filter((d) => d.saved)
+      toast(
+        saved.length
+          ? `${saved.map((d) => d.dayName).join(', ')}: allenamento salvato in automatico`
+          : `${done[0].dayName}: nessuna serie segnata, allenamento chiuso`,
+      )
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    check()
+    const timer = setInterval(check, 60000)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 }
 
 // Riepilogo mostrato appena salvi un allenamento

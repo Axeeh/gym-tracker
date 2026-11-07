@@ -204,6 +204,15 @@ export function draftToSession(
   }
 }
 
+// Dopo quanti minuti senza toccare nulla un allenamento si considera finito
+export const IDLE_MINUTES = 90
+
+export const draftLastActivity = (draft: Draft) => new Date(draft.lastActivityAt ?? draft.startedAt)
+
+export function isDraftIdle(draft: Draft, now = new Date(), idleMinutes = IDLE_MINUTES) {
+  return now.getTime() - draftLastActivity(draft).getTime() >= idleMinutes * 60000
+}
+
 export function sessionSetCount(s: Session) {
   return s.exercises.reduce((n, ex) => n + ex.sets.length, 0)
 }

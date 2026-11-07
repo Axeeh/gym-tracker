@@ -4,6 +4,8 @@ import {
   applyEntry,
   createDraft,
   draftToSession,
+  draftLastActivity,
+  isDraftIdle,
   dropSet,
   newRecords,
   nextDayId,
@@ -199,6 +201,27 @@ describe('fine allenamento', () => {
     expect(onlyDone.durationMin).toBe(50)
     const all = draftToSession(day, draft, true, new Date('2026-09-28T07:50:00'))
     expect(all.exercises.length).toBeGreaterThan(5)
+  })
+
+  it('un allenamento fermo da 90 minuti e\' inattivo; conta l\'ultima modifica', () => {
+    const s = base()
+    const draft = createDraft(push(s), s.sessions, new Date('2026-09-28T07:00:00'))
+    expect(isDraftIdle(draft, new Date('2026-09-28T08:29:00'))).toBe(false)
+    expect(isDraftIdle(draft, new Date('2026-09-28T08:30:00'))).toBe(true)
+    draft.lastActivityAt = new Date('2026-09-28T08:00:00').toISOString()
+    expect(isDraftIdle(draft, new Date('2026-09-28T08:30:00'))).toBe(false)
+    expect(draftLastActivity(draft).toISOString()).toBe(new Date('2026-09-28T08:00:00').toISOString())
+  })
+
+  it('chiuso in automatico porta la data e la durata dell\'ultima attivita\'', () => {
+    const s = base()
+    const day = push(s)
+    const draft = createDraft(day, s.sessions, new Date('2026-09-28T07:00:00'))
+    draft.exercises['chest-press'].sets[0] = { e: [{ w: 47.5, r: 8 }], done: true }
+    draft.lastActivityAt = new Date('2026-09-28T07:40:00').toISOString()
+    const auto = draftToSession(day, draft, false, draftLastActivity(draft))
+    expect(auto.durationMin).toBe(40)
+    expect(auto.date).toBe(new Date('2026-09-28T07:40:00').toISOString())
   })
 
   it('riconosce un nuovo record di peso', () => {

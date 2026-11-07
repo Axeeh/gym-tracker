@@ -63,6 +63,8 @@ export type DraftExercise = {
 export type Draft = {
   dayId: string
   startedAt: string
+  // Ultima modifica (peso, ripetizioni, spunta...). Assente nei dati vecchi: vale startedAt
+  lastActivityAt?: string
   exercises: Record<string, DraftExercise>
 }
 

@@ -5,8 +5,10 @@ import {
   applyEntry,
   COLORS,
   createDraft,
+  draftLastActivity,
   draftToSession,
   dropSet,
+  isDraftIdle,
   newRecords,
   normalizeState,
   syncDraft,
@@ -96,7 +98,14 @@ function mapDraftExercise(
   if (!draft || !ex) return s
   return {
     ...s,
-    drafts: { ...s.drafts, [dayId]: { ...draft, exercises: { ...draft.exercises, [exId]: fn(ex) } } },
+    drafts: {
+      ...s.drafts,
+      [dayId]: {
+        ...draft,
+        lastActivityAt: new Date().toISOString(),
+        exercises: { ...draft.exercises, [exId]: fn(ex) },
+      },
+    },
   }
 }
 
@@ -207,6 +216,33 @@ export function finishDraft(
     return { ...cur, drafts, sessions: [...cur.sessions, session] }
   })
   return { session, records }
+}
+
+export type AutoFinished = { dayId: string; dayName: string; saved: boolean }
+
+// Chiude gli allenamenti fermi da troppo tempo (se l'app e' stata chiusa, al prossimo avvio).
+// Si salvano solo le serie segnate, con data e durata dell'ultima cosa fatta, non di adesso.
+// Senza serie segnate non c'e' niente da salvare: la bozza si scarta
+export function finishIdleDrafts(now = new Date()): AutoFinished[] {
+  const out: AutoFinished[] = []
+  const sessions: Session[] = []
+  const closed: string[] = []
+  for (const draft of Object.values(state.drafts)) {
+    if (!isDraftIdle(draft, now)) continue
+    const day = findDay(state, draft.dayId)
+    closed.push(draft.dayId)
+    if (!day) continue
+    const session = draftToSession(day, draft, false, draftLastActivity(draft))
+    if (session.exercises.length) sessions.push(session)
+    out.push({ dayId: day.id, dayName: day.name, saved: session.exercises.length > 0 })
+  }
+  if (!closed.length) return out
+  set((s) => {
+    const drafts = { ...s.drafts }
+    for (const id of closed) delete drafts[id]
+    return { ...s, drafts, sessions: [...s.sessions, ...sessions] }
+  })
+  return out
 }
 
 // ---------- scheda ----------
