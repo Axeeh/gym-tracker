@@ -1,9 +1,10 @@
-import { ClipboardList, Dumbbell, History as HistoryIcon, TrendingUp, Trophy } from 'lucide-react'
+import { ClipboardList, Dumbbell, FileDown, History as HistoryIcon, TrendingUp, Trophy } from 'lucide-react'
 import { didSaveFail, useAppState } from './store'
 import { useRoute, type Route } from './device'
 import { showResult, useResult } from './flash'
 import { sessionSetCount, sessionVolume } from './logic'
 import { fmtKg, fmtNum } from './format'
+import { exportSessionPdf } from './pdf'
 import { Sheet, Toaster } from './ui'
 import { Home } from './screens/Home'
 import { Workout } from './screens/Workout'
@@ -50,7 +51,7 @@ export default function App() {
           })}
         </nav>
       )}
-      <ResultSheet />
+      <ResultSheet days={state.days} />
       <Toaster />
     </>
   )
@@ -77,7 +78,7 @@ export default function App() {
 }
 
 // Riepilogo mostrato appena salvi un allenamento
-function ResultSheet() {
+function ResultSheet({ days }: { days: ReturnType<typeof useAppState>['days'] }) {
   const result = useResult()
   const close = () => showResult(null)
   const s = result?.session
@@ -126,6 +127,14 @@ function ResultSheet() {
             <div className="sheet-actions">
               <button type="button" className="btn btn-primary" onClick={close}>
                 Fatto
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => exportSessionPdf(s, { days, records: result.records })}
+              >
+                <FileDown size={18} aria-hidden="true" />
+                Esporta PDF
               </button>
             </div>
           </>
