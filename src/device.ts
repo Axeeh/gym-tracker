@@ -10,16 +10,26 @@ export type Route =
   | { name: 'plan' }
   | { name: 'builder' }
   | { name: 'add'; dayId: string }
+  | { name: 'import'; token: string }
+
+function safeDecode(s: string) {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
 
 export function parseHash(hash: string): Route {
   const [first, second, third] = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
-  if (first === 'allenamento' && second) return { name: 'workout', dayId: decodeURIComponent(second) }
+  if (first === 'allenamento' && second) return { name: 'workout', dayId: safeDecode(second) }
   if (first === 'progressi') return { name: 'progress' }
   if (first === 'storico') return { name: 'history' }
   if (first === 'scheda' && second === 'aggiungi' && third)
-    return { name: 'add', dayId: decodeURIComponent(third) }
+    return { name: 'add', dayId: safeDecode(third) }
   if (first === 'scheda') return { name: 'plan' }
   if (first === 'crea') return { name: 'builder' }
+  if (first === 'importa') return { name: 'import', token: second ? safeDecode(second) : '' }
   return { name: 'home' }
 }
 
@@ -41,6 +51,12 @@ export const selection: { planDayId?: string } = {}
 
 export const go = (path: string) => {
   location.hash = path
+}
+
+// Cambia percorso senza lasciare il vecchio link nella cronologia (usato dopo un import da link)
+export const replaceRoute = (path: string) => {
+  history.replaceState(null, '', `${location.pathname}#${path}`)
+  window.dispatchEvent(new Event('hashchange'))
 }
 
 // ---------- schermo sempre acceso durante l'allenamento ----------

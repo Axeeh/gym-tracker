@@ -1272,6 +1272,67 @@ a.row:active {
   white-space: nowrap;
 }
 
+.share-days {
+  margin: 18px 0 0;
+  padding: 6px 16px;
+  max-height: 34dvh;
+  overflow-y: auto;
+  border-radius: var(--radius-m);
+  background: var(--surface-2);
+  list-style: none;
+}
+
+.share-days li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: var(--t-sm);
+}
+
+.share-days li + li {
+  border-top: 1px solid var(--line);
+}
+
+.share-day-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.share-day-name .dot {
+  width: 10px;
+  height: 10px;
+}
+
+.share-days li > span:last-child {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.share-link {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--font-num);
+  font-size: var(--t-sm);
+  text-overflow: ellipsis;
+}
+
+.share-link:focus {
+  border-color: var(--focus);
+  color: var(--ink);
+  outline: none;
+}
+
 /* ==========================================================================
    Toast
    ========================================================================== */

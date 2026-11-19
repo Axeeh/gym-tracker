@@ -1,9 +1,12 @@
+import { useEffect, useRef } from 'react'
 import { ClipboardList, Dumbbell, FileDown, History as HistoryIcon, TrendingUp, Trophy } from 'lucide-react'
-import { didSaveFail, useAppState } from './store'
-import { useRoute, type Route } from './device'
-import { showResult, useResult } from './flash'
+import { didSaveFail, getState, replacePlan, restorePlan, useAppState } from './store'
+import { replaceRoute, selection, useRoute, type Route } from './device'
+import { showImport, showResult, toast, useImportNotice, useResult } from './flash'
 import { sessionSetCount, sessionVolume } from './logic'
-import { fmtKg, fmtNum } from './format'
+import { fmtKg, fmtNum, nDays, nEx } from './format'
+import { realCount } from './backup'
+import { decodePlan, extractShareToken, linkImportedPlan, plansEqual } from './share'
 import { exportSessionPdf } from './pdf'
 import { Sheet, Toaster } from './ui'
 import { Home } from './screens/Home'
@@ -25,10 +28,51 @@ const TABS = [
 export default function App() {
   const state = useAppState()
   const route = useRoute()
-  // Al primo avvio si sceglie da dove partire (il costruttore della scheda resta raggiungibile)
-  const showWelcome = !state.onboarded && route.name !== 'builder'
+  const importingRef = useRef<string | null>(null)
+  const shareToken = route.name === 'import' ? route.token : extractShareToken(location)
+
+  useEffect(() => {
+    if (shareToken === null) {
+      importingRef.current = null
+      return
+    }
+    if (importingRef.current === shareToken) return
+    importingRef.current = shareToken
+
+    void (async () => {
+      const imported = shareToken ? await decodePlan(shareToken) : null
+      if (!imported) {
+        replaceRoute('/')
+        toast('Questo link non contiene una scheda valida')
+        return
+      }
+      const prev = getState()
+      const hadPlan = prev.onboarded && prev.days.length > 0
+      const prevPlan = hadPlan
+        ? { days: structuredClone(prev.days), drafts: structuredClone(prev.drafts) }
+        : null
+      const linked = linkImportedPlan(imported, prev)
+      const changed = !prevPlan || !plansEqual(prevPlan.days, linked)
+
+      replacePlan(linked)
+      selection.planDayId = linked[0]?.id
+      replaceRoute('/')
+      showImport({
+        days: linked,
+        previous: prevPlan && changed ? prevPlan : null,
+        hadSessions: realCount(prev) > 0,
+      })
+    })()
+  }, [shareToken])
+
+  // Al primo avvio si sceglie da dove partire (costruttore e import da link restano raggiungibili)
+  const showWelcome = !state.onboarded && route.name !== 'builder' && shareToken === null
   const fullScreen =
-    showWelcome || route.name === 'workout' || route.name === 'builder' || route.name === 'add'
+    showWelcome ||
+    route.name === 'workout' ||
+    route.name === 'builder' ||
+    route.name === 'add' ||
+    shareToken !== null
 
   return (
     <>
@@ -37,7 +81,13 @@ export default function App() {
           Non riesco a salvare i dati su questo telefono. Libera un po' di spazio o esporta un backup.
         </p>
       )}
-      {showWelcome ? <Welcome /> : screen(route)}
+      {shareToken !== null ? (
+        <main className="screen" aria-busy="true" />
+      ) : showWelcome ? (
+        <Welcome />
+      ) : (
+        screen(route)
+      )}
       {!fullScreen && (
         <nav className="tabbar" aria-label="Sezioni">
           {TABS.map(({ href, name, label, Icon }) => {
@@ -52,6 +102,7 @@ export default function App() {
         </nav>
       )}
       <ResultSheet days={state.days} />
+      <ImportSheet />
       <Toaster />
     </>
   )
@@ -75,6 +126,57 @@ export default function App() {
         return <Home state={state} />
     }
   }
+}
+
+// Conferma mostrata dopo l'importazione automatica di una scheda da link
+function ImportSheet() {
+  const imp = useImportNotice()
+  const close = () => showImport(null)
+  const totalEx = imp ? imp.days.reduce((n, d) => n + d.exercises.length, 0) : 0
+
+  return (
+    <Sheet open={!!imp} onClose={close} labelledBy="import-title">
+      {imp && (
+        <>
+          <h2 id="import-title">Scheda importata</h2>
+          <p>
+            {nDays(imp.days.length)} e {nEx(totalEx)} pronti per l'allenamento.
+            {imp.hadSessions ? ' Lo storico dei tuoi allenamenti è rimasto intatto.' : ''}
+          </p>
+          <ul className="share-days" aria-label="Giorni importati">
+            {imp.days.map((d) => (
+              <li key={d.id} data-color={d.color}>
+                <span className="share-day-name">
+                  <span className="dot" aria-hidden="true" />
+                  {d.name}
+                </span>
+                <span>{nEx(d.exercises.length)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="sheet-actions">
+            <button type="button" className="btn btn-primary" onClick={close}>
+              {imp.previous ? 'Usa questa scheda' : 'Inizia'}
+            </button>
+            {imp.previous && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  restorePlan(imp.previous!.days, imp.previous!.drafts)
+                  selection.planDayId = imp.previous!.days[0]?.id
+                  close()
+                  toast('Scheda precedente ripristinata')
+                }}
+              >
+                Ripristina la tua scheda
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </Sheet>
+  )
 }
 
 // Riepilogo mostrato appena salvi un allenamento

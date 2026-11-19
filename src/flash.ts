@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import type { Session } from './types'
+import type { AppState, Day, Session } from './types'
 import type { RecordHit } from './logic'
 
-// Piccoli store per messaggi temporanei: toast e riepilogo di fine allenamento
+// Piccoli store per messaggi temporanei: toast, riepilogo di fine allenamento e scheda importata
 
 function createSignal<T>(initial: T) {
   let value = initial
@@ -38,3 +38,13 @@ const resultSignal = createSignal<Result>(null)
 
 export const showResult = (r: Result) => resultSignal.set(r)
 export const useResult = () => useSyncExternalStore(resultSignal.subscribe, resultSignal.get)
+
+export type ImportNotice = {
+  days: Day[]
+  previous: { days: Day[]; drafts: AppState['drafts'] } | null
+  hadSessions: boolean
+} | null
+const importSignal = createSignal<ImportNotice>(null)
+
+export const showImport = (n: ImportNotice) => importSignal.set(n)
+export const useImportNotice = () => useSyncExternalStore(importSignal.subscribe, importSignal.get)

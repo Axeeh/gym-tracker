@@ -293,3 +293,8 @@ export function replacePlan(days: Day[]) {
   set((s) => ({ ...s, days, drafts: {}, onboarded: true }))
 }
 
+// Ripristina giorni e allenamenti in corso precedenti (es. annullando un'importazione da link)
+export function restorePlan(days: Day[], drafts: AppState['drafts']) {
+  set((s) => ({ ...s, days, drafts, onboarded: true }))
+}
+

@@ -1,8 +1,21 @@
-import { useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, ChevronRight, Copy, Download, Plus, Trash2, Upload, Wand2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  Copy,
+  Download,
+  Link2,
+  Plus,
+  Share2,
+  Trash2,
+  Upload,
+  Wand2,
+} from 'lucide-react'
 import type { AppState, ColorKey, Day, Exercise } from '../types'
 import { COLORS } from '../logic'
-import { fmtClock, fmtDate, fmtNum, planAsText, relDay } from '../format'
+import { fmtClock, fmtDate, fmtNum, nDays, nEx, planAsText, relDay } from '../format'
 import {
   addDay,
   deleteDay,
@@ -14,6 +27,7 @@ import {
 } from '../store'
 import { toast } from '../flash'
 import { exportBackup, readBackup, realCount } from '../backup'
+import { buildShareUrl, copyToClipboard, encodePlan, nativeShareUrl } from '../share'
 import { selection } from '../device'
 import { Pictogram, Seg, Sheet, Stepper } from '../ui'
 import { ICON_KEYS, ICONS, iconFor } from '../icons'
@@ -43,6 +57,7 @@ export function Plan({ state }: { state: AppState }) {
   const day = days.find((d) => d.id === dayId) ?? days[0]
   const [openEx, setOpenEx] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Confirm>(null)
+  const [shareOpen, setShareOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const onBackupFile = async (file: File | undefined) => {
@@ -53,18 +68,27 @@ export function Plan({ state }: { state: AppState }) {
   }
 
   const copyText = async () => {
-    try {
-      await navigator.clipboard.writeText(planAsText(state.days, state.sessions))
-      toast('Scheda copiata, puoi incollarla nelle note')
-    } catch {
-      toast('Non sono riuscito a copiare')
-    }
+    const ok = await copyToClipboard(planAsText(state.days, state.sessions))
+    toast(ok ? 'Scheda copiata, puoi incollarla nelle note' : 'Non sono riuscito a copiare')
   }
 
   return (
     <main className="screen">
       <header className="head">
-        <h1>Scheda</h1>
+        <div className="head-row">
+          <h1>Scheda</h1>
+          {days.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-text"
+              onClick={() => setShareOpen(true)}
+              aria-label="Condividi la scheda con un link"
+            >
+              <Share2 size={18} aria-hidden="true" />
+              Condividi
+            </button>
+          )}
+        </div>
         <p>I tuoi giorni, gli esercizi e le serie</p>
       </header>
 
@@ -196,6 +220,18 @@ export function Plan({ state }: { state: AppState }) {
 
       <h2 className="section-title">I tuoi dati</h2>
       <div className="group">
+        <button
+          type="button"
+          className="row"
+          disabled={days.length === 0}
+          onClick={() => setShareOpen(true)}
+        >
+          <Link2 size={22} aria-hidden="true" className="row-end" />
+          <span className="row-main">
+            <span className="row-title">Condividi la scheda con un link</span>
+            <span className="row-sub">Chi apre il link la importa subito, senza i tuoi pesi</span>
+          </span>
+        </button>
         <button type="button" className="row" onClick={exportBackup}>
           <Download size={22} aria-hidden="true" className="row-end" />
           <span className="row-main">
@@ -234,6 +270,8 @@ export function Plan({ state }: { state: AppState }) {
         I dati restano salvati su questo telefono. Ogni tanto esporta un backup e tienilo in File o su
         iCloud Drive.
       </p>
+
+      <ShareSheet open={shareOpen} days={days} onClose={() => setShareOpen(false)} />
 
       <Sheet open={!!confirm} onClose={() => setConfirm(null)} labelledBy="confirm-title">
         {confirm?.kind === 'exercise' && (
@@ -315,6 +353,105 @@ export function Plan({ state }: { state: AppState }) {
         )}
       </Sheet>
     </main>
+  )
+}
+
+function ShareSheet({ open, days, onClose }: { open: boolean; days: Day[]; onClose: () => void }) {
+  const [url, setUrl] = useState('')
+  const [copied, setCopied] = useState(false)
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+  const totalEx = days.reduce((n, d) => n + d.exercises.length, 0)
+
+  useEffect(() => {
+    if (!open || days.length === 0) {
+      setUrl('')
+      setCopied(false)
+      return
+    }
+    let cancelled = false
+    setUrl('')
+    setCopied(false)
+    void encodePlan(days).then((token) => {
+      if (!cancelled) setUrl(buildShareUrl(token))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open, days])
+
+  const copy = async () => {
+    if (!url) return
+    const ok = await copyToClipboard(url)
+    if (ok) {
+      setCopied(true)
+      toast('Link copiato: chi lo apre importa la scheda')
+    } else {
+      toast('Non sono riuscito a copiare il link')
+    }
+  }
+
+  const share = async () => {
+    if (!url) return
+    const res = await nativeShareUrl(url)
+    if (res === 'shared') {
+      onClose()
+      toast('Link pronto per la condivisione')
+    } else if (res === 'unsupported') {
+      await copy()
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} labelledBy="share-title">
+      <h2 id="share-title">Condividi la scheda</h2>
+      <p>
+        Chi apre questo link importa subito {nDays(days.length)} e {nEx(totalEx)}. I tuoi pesi e lo
+        storico restano solo sul tuo telefono.
+      </p>
+      <ul className="share-days" aria-label="Giorni inclusi nel link">
+        {days.map((d) => (
+          <li key={d.id} data-color={d.color}>
+            <span className="share-day-name">
+              <span className="dot" aria-hidden="true" />
+              {d.name}
+            </span>
+            <span>{nEx(d.exercises.length)}</span>
+          </li>
+        ))}
+      </ul>
+      <input
+        className="share-link"
+        type="text"
+        readOnly
+        value={url}
+        aria-label="Link per condividere la scheda"
+        onFocus={(e) => e.currentTarget.select()}
+      />
+      <div className="sheet-actions">
+        {canNativeShare ? (
+          <>
+            <button type="button" className="btn btn-primary" disabled={!url} onClick={share}>
+              <Share2 size={18} aria-hidden="true" />
+              Condividi link
+            </button>
+            <button type="button" className="btn btn-secondary" disabled={!url} onClick={copy}>
+              {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+              {copied ? 'Link copiato' : 'Copia link'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="btn btn-primary" disabled={!url} onClick={copy}>
+              {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+              {copied ? 'Link copiato' : 'Copia link'}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Chiudi
+            </button>
+          </>
+        )}
+      </div>
+    </Sheet>
   )
 }
 
