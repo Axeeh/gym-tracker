@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { CalendarDays, ChevronRight, Trash2 } from 'lucide-react'
+import { CalendarDays, ChevronRight, FileDown, Trash2 } from 'lucide-react'
 import type { AppState, Session } from '../types'
 import { byDateDesc, sessionSetCount, sessionVolume } from '../logic'
 import { fmtDate, fmtMonth, fmtNum, fmtSets, nEx } from '../format'
 import { deleteSession } from '../store'
 import { toast } from '../flash'
+import { exportSessionPdf } from '../pdf'
 import { Sheet } from '../ui'
 
 export function History({ state }: { state: AppState }) {
@@ -70,6 +71,20 @@ export function History({ state }: { state: AppState }) {
               </div>
             ))}
             <div className="detail-actions">
+              <button
+                type="button"
+                className="btn btn-text"
+                onClick={() =>
+                  exportSessionPdf(s, {
+                    color: colorOf(s),
+                    days: state.days,
+                    sessions: state.sessions,
+                  })
+                }
+              >
+                <FileDown size={18} aria-hidden="true" />
+                Esporta PDF
+              </button>
               <button type="button" className="btn btn-text danger" onClick={() => setToDelete(s)}>
                 <Trash2 size={18} aria-hidden="true" />
                 Elimina

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { ChevronDown, TrendingUp } from 'lucide-react'
+import { ChevronDown, FileDown, TrendingUp } from 'lucide-react'
 import type { AppState } from '../types'
 import { progressSeries, type Metric, type Point } from '../logic'
 import { fmtDate, fmtNum, fmtShortDate } from '../format'
+import { exportDayProgressPdf } from '../pdf'
 import { Pictogram, Seg } from '../ui'
 import { iconFor } from '../icons'
 
@@ -44,7 +45,20 @@ export function Progress({ state }: { state: AppState }) {
   return (
     <main className="screen" data-color={day?.color}>
       <header className="head">
-        <h1>Progressi</h1>
+        <div className="head-row">
+          <h1>Progressi</h1>
+          {day && day.exercises.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-text"
+              onClick={() => exportDayProgressPdf(day, sessions, { metric: metricChoice })}
+              aria-label={`Esporta progressi di ${day.name} in PDF`}
+            >
+              <FileDown size={18} aria-hidden="true" />
+              Esporta PDF
+            </button>
+          )}
+        </div>
         <p>Come stanno andando i tuoi esercizi</p>
       </header>
 

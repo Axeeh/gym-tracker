@@ -13,6 +13,12 @@ import {
   syncDraft,
 } from './logic'
 import { fmtSets, parseNum, planAsText, relDay } from './format'
+import {
+  buildDayProgressPdf,
+  buildWorkoutPdf,
+  dayProgressPdfFilename,
+  workoutPdfFilename,
+} from './pdf'
 import type { DraftSet, Session } from './types'
 import { guessIcon, iconFor } from './icons'
 
@@ -302,3 +308,165 @@ describe('catalogo', () => {
     expect(suggestedGroups('Giorno A')).toEqual([])
   })
 })
+
+describe('esportazione PDF', () => {
+  const decode = (bytes: Uint8Array) => new TextDecoder('ascii').decode(bytes)
+
+  it('genera un PDF 1.4 valido con tabella xref coerente, superset e record', () => {
+    const s = base()
+    const workout: Session = {
+      id: 'push-2026-10-01',
+      dayId: 'push',
+      dayName: 'Push',
+      color: 'corallo',
+      date: new Date('2026-10-01T18:15:00').toISOString(),
+      durationMin: 52,
+      exercises: [
+        {
+          exId: 'chest-press',
+          name: 'Chest press',
+          sets: [
+            [{ w: 47.5, r: 8 }],
+            [{ w: 45, r: 8 }],
+            [{ w: 45, r: 7 }],
+          ],
+        },
+        {
+          exId: 'croci-cavi',
+          name: 'Croci ai cavi',
+          parts: ['Cavi alti', 'Cavi bassi'],
+          sets: [
+            [{ w: 27, r: 10 }, { w: 14, r: 10 }],
+            [{ w: 25, r: 10 }, { w: 12, r: 9 }],
+          ],
+        },
+        {
+          exId: 'trazioni',
+          name: 'Trazioni alla sbarra',
+          sets: [[{ w: null, r: 10 }]],
+        },
+      ],
+    }
+
+    const bytes = buildWorkoutPdf(workout, { days: s.days, sessions: s.sessions })
+    const text = decode(bytes)
+
+    expect(text.startsWith('%PDF-1.4\n')).toBe(true)
+    expect(text.trimEnd().endsWith('%%EOF')).toBe(true)
+    expect(text).toContain('(Push)')
+    expect(text).toContain('(52 min)')
+    expect(text).toContain('(Chest press)')
+    expect(text).toContain('(Superset: A Cavi alti + B Cavi bassi)')
+    expect(text).toContain('(ZAVORRA)')
+    expect(text).toContain('(NUOVI RECORD)')
+    expect(text).toContain('(Pagina 1 di 1)')
+
+    // Verifica offset esatto della tabella xref
+    const m = text.match(/startxref\n(\d+)\n%%EOF/)
+    expect(m).not.toBeNull()
+    const xrefPos = Number(m![1])
+    expect(text.slice(xrefPos, xrefPos + 5)).toBe('xref\n')
+  })
+
+  it('fa stare un allenamento tipico da 7 esercizi in una sola pagina', () => {
+    const s = base()
+    const pushDay = push(s)
+    const workout: Session = {
+      id: 'push-full',
+      dayId: pushDay.id,
+      dayName: pushDay.name,
+      color: pushDay.color,
+      date: new Date('2026-10-02T18:00:00').toISOString(),
+      durationMin: 55,
+      exercises: pushDay.exercises.map((ex) => ({
+        exId: ex.id,
+        name: ex.name,
+        parts: ex.parts,
+        sets: Array.from({ length: ex.sets }, () =>
+          ex.parts ? [{ w: 25, r: 10 }, { w: 12, r: 10 }] : [{ w: 40, r: 8 }],
+        ),
+      })),
+    }
+
+    const text = decode(buildWorkoutPdf(workout, { days: s.days, sessions: s.sessions }))
+    expect(text).toContain('/Count 1')
+    expect(text).toContain('(Pagina 1 di 1)')
+  })
+
+  it('impagina su piu pagine quando ci sono moltissimi esercizi', () => {
+    const many: Session = {
+      id: 'long-1',
+      dayId: 'full',
+      dayName: 'Full Body Più Lungo',
+      color: 'blu',
+      date: new Date('2026-10-05T10:00:00').toISOString(),
+      exercises: Array.from({ length: 16 }, (_, i) => ({
+        exId: `ex-${i}`,
+        name: `Esercizio ${i + 1} con accento è`,
+        sets: [
+          [{ w: 40 + i, r: 10 }],
+          [{ w: 40 + i, r: 10 }],
+          [{ w: 40 + i, r: 10 }],
+        ],
+      })),
+    }
+
+    const text = decode(buildWorkoutPdf(many))
+    expect(text).toMatch(/\/Count [2-9]/)
+    expect(text).toContain('(Pagina 1 di ')
+    expect(text).toContain('(Pagina 2 di ')
+    // 'è' (0xE8 = ottale 350) codificato correttamente in WinAnsi
+    expect(text).toContain('\\350')
+  })
+
+  it('crea nomi file sicuri con data locale', () => {
+    const s: Session = {
+      id: 'x',
+      dayId: 'd',
+      dayName: 'Gambe & Glutei (Più)',
+      color: 'verde',
+      date: new Date(2026, 9, 14, 19, 30).toISOString(),
+      exercises: [],
+    }
+    expect(workoutPdfFilename(s)).toBe('allenamento-gambe-glutei-piu-2026-10-14.pdf')
+  })
+
+  it('esporta i progressi di un giorno della scheda con grafici e superset A/B in una pagina', () => {
+    const s = base()
+    const pushDay = push(s)
+    s.sessions.push(
+      session('push', '2026-10-03T18:00:00', { 'chest-press': [[47.5, 8], [45, 8], [45, 8]] }),
+      session('push', '2026-10-10T18:00:00', { 'chest-press': [[50, 8], [47.5, 8], [47.5, 8]] }),
+    )
+
+    const bytes = buildDayProgressPdf(pushDay, s.sessions, { now: new Date(2026, 9, 12) })
+    const text = decode(bytes)
+
+    expect(text.startsWith('%PDF-1.4\n')).toBe(true)
+    expect(text.trimEnd().endsWith('%%EOF')).toBe(true)
+    expect(text).toContain('/Count 1')
+    expect(text).toContain('(Push)')
+    expect(text).toContain('(50 kg)')
+    expect(text).toContain('(+5 kg)')
+    expect(text).toContain('(3A)')
+    expect(text).toContain('(3B)')
+    expect(text).toContain('(Pagina 1 di 1)')
+    expect(dayProgressPdfFilename(pushDay, new Date(2026, 9, 12))).toBe(
+      'progressi-push-2026-10-12.pdf',
+    )
+  })
+
+  it('rispetta la metrica scelta nel PDF dei progressi', () => {
+    const s = base()
+    const pushDay = push(s)
+    s.sessions.push(
+      session('push', '2026-10-03T18:00:00', { 'chest-press': [[45, 8], [45, 8], [45, 8]] }),
+      session('push', '2026-10-10T18:00:00', { 'chest-press': [[50, 8], [47.5, 8], [47.5, 8]] }),
+    )
+
+    const text = decode(buildDayProgressPdf(pushDay, s.sessions, { metric: 'volume' }))
+    expect(text).toContain('PROGRESSI \\267 VOLUME')
+    expect(text).toContain('(1160 kg)')
+  })
+})
+
