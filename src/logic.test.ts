@@ -20,8 +20,17 @@ import {
   dayProgressPdfFilename,
   workoutPdfFilename,
 } from './pdf'
-import type { DraftSet, Session } from './types'
+import type { Day, DraftSet, Session } from './types'
 import { guessIcon, iconFor } from './icons'
+import { parseHash } from './device'
+import {
+  buildShareUrl,
+  decodePlan,
+  encodePlan,
+  extractShareToken,
+  linkImportedPlan,
+  plansEqual,
+} from './share'
 
 // Scheda pronta con alcuni pesi di partenza, come dopo l'import del backup delle note
 const PESI: Record<string, number[][]> = {
@@ -477,4 +486,152 @@ describe('esportazione PDF', () => {
     expect(text).toContain('(1160 kg)')
   })
 })
+
+describe('condivisione scheda via link', () => {
+  it('codifica e decodifica la scheda completa con superset, note, corpo libero e icone', async () => {
+    const days: Day[] = structuredClone(templateState().days)
+    days[0].exercises[0].icon = 'panca-piana'
+    days[1].exercises[0].note = 'Presa neutra — più controllo'
+
+    const token = await encodePlan(days)
+    expect(token).toMatch(/^z[A-Za-z0-9_-]+$/)
+    // La compressione mantiene il link compatto anche per 18 esercizi
+    expect(token.length).toBeLessThan(1100)
+
+    const decoded = await decodePlan(token)
+    expect(decoded).toEqual(days)
+  })
+
+  it('supporta anche il formato non compresso come fallback', async () => {
+    const days = templateState().days.slice(0, 1)
+    const token = await encodePlan(days, { compress: false })
+    expect(token).toMatch(/^u[A-Za-z0-9_-]+$/)
+    expect(await decodePlan(token)).toEqual(days)
+  })
+
+  it('costruisce ed estrae il token dal link sia via hash sia via query', async () => {
+    const token = await encodePlan(templateState().days)
+    const url = buildShareUrl(token, {
+      origin: 'https://la-mia-scheda-gym.netlify.app',
+      pathname: '/',
+    })
+    expect(url).toBe(`https://la-mia-scheda-gym.netlify.app/#/importa/${token}`)
+
+    const parsed = new URL(url)
+    expect(extractShareToken(parsed)).toBe(token)
+    expect(parseHash(parsed.hash)).toEqual({ name: 'import', token })
+    expect(extractShareToken({ hash: '', search: `?scheda=${token}` })).toBe(token)
+    expect(extractShareToken({ hash: '#/scheda', search: '' })).toBeNull()
+  })
+
+  it('rifiuta link vuoti, corrotti o con struttura non valida', async () => {
+    expect(await decodePlan('')).toBeNull()
+    expect(await decodePlan('xabc')).toBeNull()
+    expect(await decodePlan('z!!!non-valido!!!')).toBeNull()
+    expect(await decodePlan('zAAAA')).toBeNull()
+    const badJson = 'u' + btoa(JSON.stringify([2, []])).replace(/=+$/, '')
+    expect(await decodePlan(badJson)).toBeNull()
+    const emptyDays = 'u' + btoa(JSON.stringify([1, []])).replace(/=+$/, '')
+    expect(await decodePlan(emptyDays)).toBeNull()
+  })
+
+  it('collega la scheda importata allo storico esistente quando i nomi coincidono', () => {
+    const current = freshState()
+    current.onboarded = true
+    current.days = [
+      {
+        id: 'mio-push',
+        name: 'Push',
+        color: 'corallo',
+        exercises: [
+          { id: 'mia-panca', name: 'Panca piana', target: 8, sets: 3, rest: 120, step: 2.5 },
+        ],
+      },
+    ]
+    current.sessions = [session('mio-push', '2026-10-01T08:00:00', { 'mia-panca': [[60, 8]] })]
+
+    const imported: Day[] = [
+      {
+        id: 'push',
+        name: 'Push',
+        color: 'blu',
+        exercises: [
+          { id: 'panca-piana', name: 'Panca piana', target: 10, sets: 4, rest: 120, step: 2.5 },
+        ],
+      },
+    ]
+
+    const linked = linkImportedPlan(imported, current)
+    expect(linked[0].id).toBe('mio-push')
+    expect(linked[0].exercises[0].id).toBe('mia-panca')
+    expect(linked[0].exercises[0].sets).toBe(4)
+  })
+
+  it('riconosce se due schede sono uguali o diverse', () => {
+    const a = templateState().days
+    const b = structuredClone(a)
+    expect(plansEqual(a, b)).toBe(true)
+    b[0].exercises[0].sets = 4
+    expect(plansEqual(a, b)).toBe(false)
+  })
+
+  it('gestisce accenti, emoji, giorni vuoti e superset nel round-trip', async () => {
+    const days: Day[] = [
+      {
+        id: 'giorno-forza',
+        name: 'Forza & Mobilità 💪',
+        color: 'viola',
+        exercises: [
+          {
+            id: 'spinte-30',
+            name: 'Spinte manubri 30°',
+            note: 'Fermo al petto — più controllo',
+            parts: ['Destro', 'Sinistro'],
+            target: null,
+            sets: 4,
+            rest: 0,
+            step: 0,
+            bodyweight: true,
+            icon: 'panca-inclinata',
+          },
+        ],
+      },
+      {
+        id: 'riposo-attivo',
+        name: 'Cardio',
+        color: 'rosa',
+        exercises: [],
+      },
+    ]
+
+    const token = await encodePlan(days)
+    expect(await decodePlan(token)).toEqual(days)
+  })
+
+  it('non va in errore con URI malformati, token troppo lunghi, id duplicati o icone sconosciute', async () => {
+    expect(parseHash('#/importa/%E0%A4%A')).toEqual({ name: 'import', token: '%E0%A4%A' })
+    expect(extractShareToken({ hash: '#/importa/%E0%A4%A', search: '' })).toBe('%E0%A4%A')
+    expect(await decodePlan('u' + 'A'.repeat(35_000))).toBeNull()
+
+    // Token creato a mano con colore fuori range, icona inesistente e nomi/id duplicati
+    const wire = [
+      1,
+      [
+        ['Push', 99, [['Panca', 3, 8, 90, 2.5, { k: 'inesistente' }], ['Panca', 3, 8, 90, 2.5]]],
+        ['Push', 1, [['Squat', 3, 8, 120, 5]]],
+      ],
+    ]
+    const raw = btoa(JSON.stringify(wire)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    const decoded = await decodePlan(`u${raw}`)
+    expect(decoded).not.toBeNull()
+    expect(decoded![0].id).toBe('push')
+    expect(decoded![1].id).toBe('push-2')
+    expect(decoded![0].color).toBe('corallo')
+    expect(decoded![0].exercises[0].id).toBe('panca')
+    expect(decoded![0].exercises[1].id).toBe('panca-2')
+    expect(decoded![0].exercises[0].icon).toBeUndefined()
+  })
+})
+
+
 

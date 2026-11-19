@@ -8,6 +8,9 @@ export const fmtKg = (n: number) => `${fmtNum(n)} kg`
 // "1 esercizio", "3 esercizi"
 export const nEx = (n: number) => (n === 1 ? '1 esercizio' : `${n} esercizi`)
 
+// "1 giorno", "3 giorni"
+export const nDays = (n: number) => (n === 1 ? '1 giorno' : `${n} giorni`)
+
 // Accetta sia "47,5" sia "47.5"; vuoto = null
 export function parseNum(text: string): number | null {
   const t = text.trim().replace(',', '.')
